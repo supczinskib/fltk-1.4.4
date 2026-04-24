@@ -21,7 +21,6 @@
 #include <FL/fl_string_functions.h>  // fl_strdup
 #include <FL/platform.H>
 #include "../../flstring.h"
-#include "../../Fl_String.H"
 #include "../../Fl_Timeout.h"
 
 #include <locale.h>
@@ -31,6 +30,7 @@
 #include <pwd.h>
 #include <string.h>     // strerror(errno)
 #include <errno.h>      // errno
+#include <string>
 #if HAVE_DLSYM && HAVE_DLFCN_H
 #include <dlfcn.h>   // for dlsym
 #endif
@@ -70,63 +70,22 @@ extern "C" {
 }
 #endif
 
-#if defined(__linux__) && defined(_XOPEN_SOURCE) && _XOPEN_SOURCE >= 700
-static locale_t c_locale = NULL;
-#endif
-
-
 int Fl_Unix_System_Driver::clocale_vprintf(FILE *output, const char *format, va_list args) {
-#if defined(__linux__) && defined(_XOPEN_SOURCE) && _XOPEN_SOURCE >= 700
-  if (!c_locale)
-    c_locale = newlocale(LC_NUMERIC_MASK, "C", duplocale(LC_GLOBAL_LOCALE));
-  locale_t previous_locale = uselocale(c_locale);
-  int retval = vfprintf(output, format, args);
-  uselocale(previous_locale);
-#else
-  char *saved_locale = setlocale(LC_NUMERIC, NULL);
-  setlocale(LC_NUMERIC, "C");
-  int retval = vfprintf(output, format, args);
-  setlocale(LC_NUMERIC, saved_locale);
-#endif
-  return retval;
+  return vfprintf(output, format, args);
 }
 
 int Fl_Unix_System_Driver::clocale_vsnprintf(char *output, size_t output_size, const char *format, va_list args) {
-#if defined(__linux__) && defined(_XOPEN_SOURCE) && _XOPEN_SOURCE >= 700
-  if (!c_locale)
-    c_locale = newlocale(LC_NUMERIC_MASK, "C", duplocale(LC_GLOBAL_LOCALE));
-  locale_t previous_locale = uselocale(c_locale);
-  int retval = vsnprintf(output, output_size, format, args);
-  uselocale(previous_locale);
-#else
-  char *saved_locale = setlocale(LC_NUMERIC, NULL);
-  setlocale(LC_NUMERIC, "C");
-  int retval = vsnprintf(output, output_size, format, args);
-  setlocale(LC_NUMERIC, saved_locale);
-#endif
-  return retval;
+  return vsnprintf(output, output_size, format, args);
 }
 
 int Fl_Unix_System_Driver::clocale_vsscanf(const char *input, const char *format, va_list args) {
-#if defined(__linux__) && defined(_XOPEN_SOURCE) && _XOPEN_SOURCE >= 700
-  if (!c_locale)
-    c_locale = newlocale(LC_NUMERIC_MASK, "C", duplocale(LC_GLOBAL_LOCALE));
-  locale_t previous_locale = uselocale(c_locale);
-  int retval = vsscanf(input, format, args);
-  uselocale(previous_locale);
-#else
-  char *saved_locale = setlocale(LC_NUMERIC, NULL);
-  setlocale(LC_NUMERIC, "C");
 #if defined(__hpux)
   // HP-UX 11.11 provides:
   //   int vsscanf(char *s, const char *format, va_list ap);
-  int retval = vsscanf((char*)input, format, args);
+  return vsscanf((char*)input, format, args);
 #else  // defined(__hpux)
-  int retval = vsscanf(input, format, args);
+  return vsscanf(input, format, args);
 #endif  // defined(__hpux)
-  setlocale(LC_NUMERIC, saved_locale);
-#endif
-  return retval;
 }
 
 
@@ -538,7 +497,8 @@ char *Fl_Unix_System_Driver::preference_user_rootnode(
     char *buffer)
 {
   // Find the path to the user's home directory.
-  Fl_String home_path = getenv("HOME");
+  const char *home_path_c = getenv("HOME");
+  std::string home_path = home_path_c ? home_path_c : "";
   if (home_path.empty()) {
     struct passwd *pw = getpwuid(getuid());
     if (pw)
@@ -546,30 +506,31 @@ char *Fl_Unix_System_Driver::preference_user_rootnode(
   }
 
   // 1: Generate the 1.4 path for this vendor and application.
-  Fl_String prefs_path_14 = getenv("XDG_CONFIG_HOME");
+  const char *prefs_path_14_c = getenv("XDG_CONFIG_HOME");
+  std::string prefs_path_14 = prefs_path_14_c ? prefs_path_14_c : "";
   if (prefs_path_14.empty()) {
     prefs_path_14 = home_path + "/.config";
   } else {
     if (prefs_path_14[prefs_path_14.size()-1]!='/')
-      prefs_path_14.append('/');
+      prefs_path_14.append("/");
     if (prefs_path_14.find("~/")==0) // starts with "~"
       prefs_path_14.replace(0, 1, home_path);
     int h_env = prefs_path_14.find("${HOME}");
-    if (h_env!=prefs_path_14.npos)
+    if (h_env!=(int)prefs_path_14.npos)
       prefs_path_14.replace(h_env, 7, home_path);
     h_env = prefs_path_14.find("$HOME/");
-    if (h_env!=prefs_path_14.npos)
+    if (h_env!=(int)prefs_path_14.npos)
       prefs_path_14.replace(h_env, 5, home_path);
   }
   if (prefs_path_14[prefs_path_14.size()-1]!='/')
-    prefs_path_14.append('/');
+    prefs_path_14.append("/");
   prefs_path_14.append(vendor);
 
   // 2: If this base path does not exist, try the 1.3 path
   if (::access(prefs_path_14.c_str(), F_OK) == -1) {
-    Fl_String prefs_path_13 = home_path + "/.fltk/" + vendor;
+    std::string prefs_path_13 = home_path + "/.fltk/" + vendor;
     if (::access(prefs_path_13.c_str(), F_OK) == 0) {
-      prefs_path_13.append('/');
+      prefs_path_13.append("/");
       prefs_path_13.append(application);
       prefs_path_13.append(".prefs");
       strlcpy(buffer, prefs_path_13.c_str(), FL_PATH_MAX);
@@ -578,7 +539,7 @@ char *Fl_Unix_System_Driver::preference_user_rootnode(
   }
 
   // 3: neither path exists, return the 1.4 file path and name
-  prefs_path_14.append('/');
+  prefs_path_14.append("/");
   prefs_path_14.append(application);
   prefs_path_14.append(".prefs");
   strlcpy(buffer, prefs_path_14.c_str(), FL_PATH_MAX);
@@ -801,12 +762,8 @@ double Fl_Unix_System_Driver::wait(double time_to_wait)
   } else {
     // do flush first so that user sees the display:
     Fl::flush();
-    if (Fl::idle) // 'idle' may have been set within flush()
-      time_to_wait = 0.0;
-    else {
-      Fl_Timeout::elapse_timeouts();
-      time_to_wait = Fl_Timeout::time_to_wait(time_to_wait);
-    }
+    Fl_Timeout::elapse_timeouts();
+    time_to_wait = Fl_Timeout::time_to_wait(time_to_wait);
     return scr_dr->poll_or_select_with_delay(time_to_wait);
   }
 }

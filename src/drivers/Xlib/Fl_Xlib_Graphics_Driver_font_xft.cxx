@@ -555,11 +555,12 @@ static XftFont* fontopen(const char* name, /*Fl_Fontsize*/double size, bool core
       XftPatternAddString(fnt_pat, XFT_FAMILY, name);
     }
 
-    // Construct a match pattern for the font we want...
+    // Construct a match pattern for the font we want.
+    // Use fontconfig point size and the normal fontconfig/Xft substitution
+    // path before matching. Do not request XFT_PIXEL_SIZE directly.
     XftPatternAddInteger(fnt_pat, XFT_WEIGHT, weight);
     XftPatternAddInteger(fnt_pat, XFT_SLANT, slant);
-    XftPatternAddDouble (fnt_pat, XFT_PIXEL_SIZE, (double)size);
-    XftPatternAddString (fnt_pat, XFT_ENCODING, fl_encoding_);
+    XftPatternAddDouble (fnt_pat, FC_SIZE, (double)size);
 
     // rotate font if angle!=0
     if (angle !=0) {
@@ -578,7 +579,12 @@ static XftFont* fontopen(const char* name, /*Fl_Fontsize*/double size, bool core
     XftResult match_result; // the result of our matching attempt
 
     // query the system to find a match for this font
-    match_pat = XftFontMatch(fl_display, fl_screen, fnt_pat, &match_result);
+    if (!FcConfigSubstitute(NULL, fnt_pat, FcMatchPattern)) {
+      XftPatternDestroy(fnt_pat);
+      return NULL;
+    }
+    XftDefaultSubstitute(fl_display, fl_screen, fnt_pat);
+    match_pat = FcFontMatch(NULL, fnt_pat, (FcResult *)&match_result);
 
 #if 0 // the XftResult never seems to get set to anything... abandon this code?
     switch(match_result) { // how good a match is this font for our request?
