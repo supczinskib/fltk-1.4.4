@@ -18,22 +18,34 @@
 #include <FL/Fl_Return_Button.H>
 #include <FL/fl_draw.H>
 
-int fl_return_arrow(int x, int y, int w, int h) {
+static Fl_Color return_arrow_lighter(Fl_Color c, float weight) {
+  return fl_color_average(FL_WHITE, c, weight * 0.40f);
+}
+
+static Fl_Color return_arrow_darker(Fl_Color c, float weight) {
+  return fl_color_average(FL_BLACK, c, weight * 0.45f);
+}
+
+static int fl_return_arrow(int x, int y, int w, int h, Fl_Color c) {
   int size = w; if (h<size) size = h;
   int d = (size+2)/4; if (d<3) d = 3;
   int t = (size+9)/12; if (t<1) t = 1;
   int x0 = x+(w-2*d-2*t-1)/2;
   int x1 = x0+d;
   int y0 = y+h/2;
-  fl_color(FL_LIGHT3);
+  fl_color(return_arrow_lighter(c, 0.5f));
   fl_line(x0, y0, x1, y0+d);
   fl_yxline(x1, y0+d, y0+t, x1+d+2*t, y0-d);
   fl_yxline(x1, y0-t, y0-d);
-  fl_color(fl_gray_ramp(0));
+  fl_color(return_arrow_darker(c, 1.0f));
   fl_line(x0, y0, x1, y0-d);
-  fl_color(FL_DARK3);
+  fl_color(return_arrow_darker(c, 0.5f));
   fl_xyline(x1+1, y0-t, x1+d, y0-d, x1+d+2*t);
   return 1;
+}
+
+int fl_return_arrow(int x, int y, int w, int h) {
+  return fl_return_arrow(x, y, w, h, FL_BACKGROUND_COLOR);
 }
 
 void Fl_Return_Button::draw() {
@@ -43,7 +55,7 @@ void Fl_Return_Button::draw() {
   draw_box(bt, value() ? selection_color() : color());
   int W = h();
   if (w()/3 < W) W = w()/3;
-  fl_return_arrow(x()+w()-(W+dx), y(), W, h());
+  fl_return_arrow(x()+w()-(W+dx), y(), W, h(), value() ? selection_color() : color());
   draw_label(x()+dx, y(), w()-(dx+W+dx), h());
   if (Fl::focus() == this) draw_focus();
 }

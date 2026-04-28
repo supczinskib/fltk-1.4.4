@@ -558,9 +558,10 @@ void menuwindow::drawentry(const Fl_Menu_Item* m, int n, int eraseit) {
   }
 
   if (m->flags & FL_MENU_DIVIDER) {
-    fl_color(FL_DARK3);
+    Fl_Color base = button ? button->color() : color();
+    fl_color(fl_color_average(FL_BLACK, base, 0.5f * 0.45f));
     fl_xyline(BW-1, yy+hh+(Fl::menu_linespacing()-2)/2, W-2*BW+2);
-    fl_color(FL_LIGHT3);
+    fl_color(fl_color_average(FL_WHITE, base, 0.5f * 0.40f));
     fl_xyline(BW-1, yy+hh+((Fl::menu_linespacing()-2)/2+1), W-2*BW+2);
   }
 }
